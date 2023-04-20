@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/pin/tftp"
+	"github.com/pin/tftp/v3"
 )
 
 var (
@@ -21,32 +21,33 @@ var (
 func init() {
 	flag.StringVar(&addr, "addr", "localhost:69", "Server address")
 	flag.StringVar(&path, "path", ".", "Local file path")
-	flag.StringVar(&filename, "file", "<filename>", "Name of the file on server")
-	flag.StringVar(&operation, "op", "<get|put>", "What to do: download or upload file")
+	flag.StringVar(&filename, "file", "", "Name of the file on server")
+	flag.StringVar(&operation, "op", "get", "What to do: download <get> or upload <put> file")
 	flag.StringVar(&mode, "mode", "octet", "Transfer mode: 'octet' or 'netascii'")
 	flag.Parse()
 }
 
 func main() {
-	if filename == "<filename>" {
-		fmt.Fprintf(os.Stderr, "missing filename!\n\n")
-		flag.Usage()
-		os.Exit(1)
+	if filename == "" {
+		errExit("missing filename!")
 	}
 	if mode != "netascii" && mode != "octet" {
-		fmt.Fprintf(os.Stderr, "invalid mode: %s\n\n", mode)
-		flag.Usage()
-		os.Exit(1)
+		errExit(fmt.Sprintf("invalid mode: %s", mode))
 	}
-	if operation == "put" {
+	switch operation {
+	case "put":
 		putFile(addr, path, filename, mode)
-	} else if operation == "get" {
+	case "get":
 		getFile(addr, path, filename, mode)
-	} else {
-		fmt.Fprintf(os.Stderr, "missing or invalid operation!\n\n")
-		flag.Usage()
-		os.Exit(1)
+	default:
+		errExit("missing or invalid operation!")
 	}
+}
+
+func errExit(message string) {
+	fmt.Fprintf(os.Stderr, "%s\n\n", message)
+	flag.Usage()
+	os.Exit(1)
 }
 
 func putFile(addr string, path string, filename string, mode string) {
@@ -55,7 +56,7 @@ func putFile(addr string, path string, filename string, mode string) {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return
 	}
-	c.SetTimeout(5 * time.Second) //optional timeout
+	c.SetTimeout(5 * time.Second) // optional timeout
 
 	file, err := os.Open(filepath.Join(path, filename))
 	if err != nil {
@@ -99,7 +100,7 @@ func getFile(addr string, path string, filename string, mode string) {
 	}
 	defer file.Close()
 
-	//Optionally obtain transfer size before actual data.
+	// Optionally obtain transfer size before actual data.
 	if n, ok := wt.(tftp.IncomingTransfer).Size(); ok {
 		fmt.Printf("Transfer size: %d\n", n)
 	}
